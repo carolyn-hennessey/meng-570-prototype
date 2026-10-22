@@ -1,0 +1,9 @@
+[server]
+# Keep uploads small; QR photos only.
+maxUploadSize = 10
+
+[browser]
+gatherUsageStats = false
+
+[logger]
+level = "warning"

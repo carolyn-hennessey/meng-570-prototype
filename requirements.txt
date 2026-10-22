@@ -1,0 +1,13 @@
+streamlit>=1.50
+qrcode[pil]>=7.4
+opencv-python-headless>=4.8
+numpy>=1.26
+Pillow>=10.0
+
+# Optional live providers (the app runs fully in mock mode without keys)
+anthropic>=2.1
+openai>=1.40
+gTTS>=2.5
+
+# Tests
+pytest>=8.0
