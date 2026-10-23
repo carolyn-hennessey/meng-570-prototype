@@ -6,9 +6,11 @@ import io
 import logging
 from dataclasses import dataclass
 
+import openai
+
 from .. import languages
 from ..config import Settings
-from . import mock_data
+from . import gateway, mock_data
 
 log = logging.getLogger(__name__)
 
@@ -29,10 +31,8 @@ def transcribe_audio(
     speaker: str = "staff",
     turn_index: int = 0,
 ) -> SttResult:
-    if settings.stt_provider == "openai":
-        if not settings.openai_api_key:
-            return SttResult(None, "OpenAI", False, "OPENAI_API_KEY is not set. Use mock mode or type the text.")
-        return _transcribe_openai(audio, language, settings)
+    if settings.stt_provider == "duke":
+        return _transcribe_gateway(audio, language, settings)
     return _transcribe_mock(language, speaker, turn_index)
 
 
@@ -44,23 +44,25 @@ def _transcribe_mock(language: str, speaker: str, turn_index: int) -> SttResult:
     return SttResult(text, "Mock STT", True)
 
 
-def _transcribe_openai(audio: bytes, language: str, settings: Settings) -> SttResult:
-    from openai import OpenAI, OpenAIError
-
+def _transcribe_gateway(audio: bytes, language: str, settings: Settings) -> SttResult:
+    provider = f"Duke AI Gateway ({settings.stt_model})"
+    if not settings.litellm_token:
+        return SttResult(None, provider, False, gateway.MISSING_TOKEN)
     lang = languages.get_language(language)
+    file = io.BytesIO(audio)
+    file.name = "turn.wav"  # st.audio_input records WAV
+    kwargs = {"model": settings.stt_model, "file": file}
+    if lang and lang.stt_code:
+        kwargs["language"] = lang.stt_code
     try:
-        client = OpenAI(api_key=settings.openai_api_key)
-        file = io.BytesIO(audio)
-        file.name = "turn.wav"  # st.audio_input records WAV
-        kwargs = {"model": "whisper-1", "file": file}
-        if lang and lang.stt_code:
-            kwargs["language"] = lang.stt_code
-        result = client.audio.transcriptions.create(**kwargs)
-        text = (result.text or "").strip()
-        if not text:
-            return SttResult(None, "OpenAI Whisper", False, "No speech was detected. Try again or type the text.")
-        return SttResult(text, "OpenAI Whisper", False)
-    except OpenAIError as exc:
+        result = gateway.client(settings).audio.transcriptions.create(**kwargs)
+    except openai.NotFoundError:
+        return SttResult(None, provider, False, f"The gateway has no speech model named “{settings.stt_model}”.")
+    except openai.OpenAIError as exc:
         # Log only the error type; never the audio or transcript.
         log.warning("STT request failed: %s", type(exc).__name__)
-        return SttResult(None, "OpenAI Whisper", False, f"Speech-to-text failed ({type(exc).__name__}).")
+        return SttResult(None, provider, False, f"Speech-to-text failed ({type(exc).__name__}).")
+    text = (result.text or "").strip()
+    if not text:
+        return SttResult(None, provider, False, "No speech was detected. Try again or type the text.")
+    return SttResult(text, provider, False)

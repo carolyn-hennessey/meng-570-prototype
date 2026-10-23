@@ -13,6 +13,7 @@ common.PAGES.update(
 )
 
 common.init_state()
+common.inject_styles()
 nav = st.navigation(list(common.PAGES.values()))
 common.render_sidebar()
 nav.run()

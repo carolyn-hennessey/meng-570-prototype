@@ -1,9 +1,19 @@
 """End-to-end mock flow through the Streamlit UI using AppTest."""
 
+import io
+
 import pytest
+from PIL import Image
 from streamlit.testing.v1 import AppTest
 
+from interp_demo.services.qr import make_qr
 from interp_demo.ui import common
+
+
+def _blank_png() -> bytes:
+    buffer = io.BytesIO()
+    Image.new("RGB", (200, 200), "white").save(buffer, format="PNG")
+    return buffer.getvalue()
 
 
 def goto(at, page):
@@ -28,24 +38,29 @@ def at(monkeypatch):
 
 
 def test_end_to_end_mock_flow(at):
-    # A. Enroll: pick Spanish, leave optional fields blank, create QR.
+    # A. Enroll: one tap on a language creates the profile and shows the QR.
     click(at, "Español")
-    click(at, "Create profile")
     token = at.session_state.last_created_token
     assert token.startswith("pli_")
-    assert any(token in c.value for c in at.code)
+    assert any("Español (Spanish)" in m.value for m in at.markdown)
+    assert not at.text_area  # no optional preference questions
 
-    # B. Staff: invalid token shows an error with retry path, valid token opens the session.
-    click(at, "Open staff scan")
+    # B. Staff: exactly two choices, camera or upload.
+    click(at, "Staff: scan this code")
     goto(at, "scan")
-    at.text_input[0].input("pli_notarealtoken12345")
-    click(at, "Open profile")
-    assert "No profile matches" in at.error[0].value
-    assert any(b.label == "Try again" for b in at.button)
-    goto(at, "scan")
+    assert not at.text_input  # no manual token entry
+    assert {"📷  Use camera", "📁  Upload a picture"} <= {b.label for b in at.button}
+    click(at, "📁  Upload a picture")
 
-    at.text_input[0].input(token)
-    click(at, "Open profile")
+    # A picture with no QR, then a QR that isn't from this app, show errors and stay retryable.
+    at.file_uploader[0].set_value(("blank.png", _blank_png(), "image/png")).run()
+    assert "couldn't find a QR code" in at.error[0].value
+    at.file_uploader[0].set_value(("other.png", make_qr("https://example.com"), "image/png")).run()
+    assert "isn't from this app" in at.error[0].value
+    assert at.file_uploader  # upload is still offered
+
+    at.file_uploader[0].set_value(("wristband.png", make_qr(token), "image/png")).run()
+    assert not at.exception, at.exception
     assert at.session_state.active_token == token
     goto(at, "session")
     assert any("Español (Spanish)" in m.value for m in at.markdown)

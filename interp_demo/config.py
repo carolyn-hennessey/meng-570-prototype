@@ -25,18 +25,19 @@ def _get(name: str, default: str = "") -> str:
 @dataclass(frozen=True)
 class Settings:
     staff_language: str
-    translation_provider: str  # "mock" | "anthropic"
-    stt_provider: str  # "mock" | "openai"
-    tts_provider: str  # "off" | "gtts" | "openai"
-    anthropic_api_key: str
-    openai_api_key: str
-    anthropic_model: str
+    translation_provider: str  # "mock" | "duke"
+    stt_provider: str  # "mock" | "duke"
+    tts_provider: str  # "off" | "duke" | "gtts"
+    litellm_token: str
+    litellm_base_url: str
+    translation_model: str
+    stt_model: str
+    tts_model: str
+    tts_voice: str
     profile_ttl_hours: float
 
 
 def load_settings() -> Settings:
-    anthropic_key = _get("ANTHROPIC_API_KEY")
-    openai_key = _get("OPENAI_API_KEY")
     return Settings(
         staff_language=_get("STAFF_LANGUAGE", "en"),
         # Default to mock unless a provider is explicitly selected, so the demo
@@ -44,8 +45,12 @@ def load_settings() -> Settings:
         translation_provider=_get("TRANSLATION_PROVIDER", "mock").lower(),
         stt_provider=_get("STT_PROVIDER", "mock").lower(),
         tts_provider=_get("TTS_PROVIDER", "off").lower(),
-        anthropic_api_key=anthropic_key,
-        openai_api_key=openai_key,
-        anthropic_model=_get("ANTHROPIC_MODEL", "claude-opus-5-5"),
+        litellm_token=_get("LITELLM_TOKEN"),
+        litellm_base_url=_get("LITELLM_BASE_URL", "https://litellm.oit.duke.edu/v1"),
+        # Model names must match what the Duke gateway lists at GET /v1/models.
+        translation_model=_get("TRANSLATION_MODEL", "GPT 4.1"),
+        stt_model=_get("STT_MODEL", "whisper-1"),
+        tts_model=_get("TTS_MODEL", "tts-1"),
+        tts_voice=_get("TTS_VOICE", "alloy"),
         profile_ttl_hours=float(_get("PROFILE_TTL_HOURS", "12")),
     )

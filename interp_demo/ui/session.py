@@ -68,18 +68,6 @@ def _profile_header(profile: PatientProfile, staff_lang: str) -> None:
     if profile.preferred_language.startswith("custom:"):
         st.caption("This language was entered as free text and is not in the demo list; translation quality may vary.")
 
-    with st.expander("Patient-provided notes (not verified medical information)", expanded=profile.has_notes):
-        if not profile.has_notes:
-            st.caption("The patient did not add any optional notes.")
-        for title, value in (
-            ("Reason for visit", profile.visit_reason),
-            ("Questions to answer", profile.questions),
-            ("Communication preferences", profile.communication_notes),
-        ):
-            if value:
-                st.markdown(f"**{title}**")
-                st.text(value)
-
 
 # --- New turn: capture audio or text ---------------------------------------
 

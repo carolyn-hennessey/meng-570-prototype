@@ -70,6 +70,22 @@ def restart_demo() -> None:
         del st.session_state[key]
 
 
+def inject_styles() -> None:
+    # Larger tap targets and text for tablets and low-vision users.
+    st.markdown(
+        """
+        <style>
+        .stButton button, .stDownloadButton button {
+            min-height: 3.25rem;
+            font-size: 1.15rem;
+        }
+        .stButton button p, .stDownloadButton button p { font-size: 1.15rem; }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 def render_sidebar() -> None:
     base = load_settings()
     with st.sidebar:
@@ -90,9 +106,9 @@ def render_sidebar() -> None:
         )
 
         st.subheader("Services")
-        _provider_select("Translation", "translation_provider", ["mock", "anthropic"], base.translation_provider)
-        _provider_select("Speech-to-text", "stt_provider", ["mock", "openai"], base.stt_provider)
-        _provider_select("Text-to-speech", "tts_provider", ["off", "gtts", "openai"], base.tts_provider)
+        _provider_select("Translation", "translation_provider", ["mock", "duke"], base.translation_provider)
+        _provider_select("Speech-to-text", "stt_provider", ["mock", "duke"], base.stt_provider)
+        _provider_select("Text-to-speech", "tts_provider", ["off", "duke", "gtts"], base.tts_provider)
 
         current = settings()
         st.caption(_status_line(current))
@@ -101,8 +117,7 @@ def render_sidebar() -> None:
 def _provider_select(label: str, key: str, options: list[str], default: str) -> None:
     names = {
         "mock": "Mock (offline demo)",
-        "anthropic": "Claude (Anthropic)",
-        "openai": "OpenAI",
+        "duke": "Duke AI Gateway",
         "gtts": "gTTS (Google, no key)",
         "off": "Off",
     }
@@ -121,10 +136,9 @@ def _status_line(s: Settings) -> str:
         notes.append("Translation is **MOCKED**.")
     if s.stt_provider == "mock":
         notes.append("Speech-to-text is **MOCKED** (recordings are not transcribed).")
-    if s.stt_provider == "openai" and not s.openai_api_key:
-        notes.append("⚠️ OPENAI_API_KEY not set — STT will fail; use typed input.")
-    if s.tts_provider == "openai" and not s.openai_api_key:
-        notes.append("⚠️ OPENAI_API_KEY not set — audio will be unavailable.")
+    uses_gateway = "duke" in (s.translation_provider, s.stt_provider, s.tts_provider)
+    if uses_gateway and not s.litellm_token:
+        notes.append("⚠️ LITELLM_TOKEN is not set — Duke AI Gateway calls will fail.")
     return " ".join(notes) or "All selected services are live providers."
 
 

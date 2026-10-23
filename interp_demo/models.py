@@ -15,14 +15,7 @@ class PatientProfile:
     token: str  # random opaque identifier used by the QR
     preferred_language: str  # normalized app value, e.g. "es" or "custom:somali"
     language_display_name: str  # patient-entered or localized label
-    visit_reason: str | None = None
-    questions: str | None = None
-    communication_notes: str | None = None
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-
-    @property
-    def has_notes(self) -> bool:
-        return any([self.visit_reason, self.questions, self.communication_notes])
 
 
 @dataclass

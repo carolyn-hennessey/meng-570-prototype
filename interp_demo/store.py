@@ -34,21 +34,11 @@ class ProfileStore:
         self._lock = threading.Lock()
         self.ttl = ttl
 
-    def create(
-        self,
-        preferred_language: str,
-        language_display_name: str,
-        visit_reason: str | None = None,
-        questions: str | None = None,
-        communication_notes: str | None = None,
-    ) -> PatientProfile:
+    def create(self, preferred_language: str, language_display_name: str) -> PatientProfile:
         profile = PatientProfile(
             token=new_token(),
             preferred_language=preferred_language,
             language_display_name=language_display_name,
-            visit_reason=visit_reason or None,
-            questions=questions or None,
-            communication_notes=communication_notes or None,
         )
         with self._lock:
             self._profiles[profile.token] = profile

@@ -5,8 +5,7 @@ numpy>=1.26
 Pillow>=10.0
 
 # Optional live providers (the app runs fully in mock mode without keys)
-anthropic>=2.1
-openai>=1.40
+openai>=1.66  # Duke AI Gateway (OpenAI-compatible LiteLLM)
 gTTS>=2.5
 
 # Tests

@@ -6,8 +6,11 @@ import io
 import logging
 from dataclasses import dataclass
 
+import openai
+
 from .. import languages
 from ..config import Settings
+from . import gateway
 
 log = logging.getLogger(__name__)
 
@@ -21,13 +24,27 @@ class TtsResult:
 
 
 def synthesize_speech(text: str, language: str, settings: Settings) -> TtsResult:
+    if settings.tts_provider == "duke":
+        return _synthesize_gateway(text, settings)
     if settings.tts_provider == "gtts":
         return _synthesize_gtts(text, language)
-    if settings.tts_provider == "openai":
-        if not settings.openai_api_key:
-            return TtsResult(None, "", "OpenAI TTS", "Audio unavailable: OPENAI_API_KEY is not set.")
-        return _synthesize_openai(text, settings)
-    return TtsResult(None, "", "Off", "Audio playback is turned off (TTS_PROVIDER=off).")
+    return TtsResult(None, "", "Off", "Audio playback is turned off.")
+
+
+def _synthesize_gateway(text: str, settings: Settings) -> TtsResult:
+    provider = f"Duke AI Gateway ({settings.tts_model})"
+    if not settings.litellm_token:
+        return TtsResult(None, "", provider, "Audio unavailable: LITELLM_TOKEN is not set.")
+    try:
+        response = gateway.client(settings).audio.speech.create(
+            model=settings.tts_model, voice=settings.tts_voice, input=text, response_format="mp3"
+        )
+        return TtsResult(response.read(), "audio/mp3", provider, f"Audio generated ({provider}).")
+    except openai.NotFoundError:
+        return TtsResult(None, "", provider, f"Audio unavailable: the gateway has no model named “{settings.tts_model}”.")
+    except openai.OpenAIError as exc:
+        log.warning("TTS request failed: %s", type(exc).__name__)
+        return TtsResult(None, "", provider, f"Audio unavailable ({type(exc).__name__}).")
 
 
 def _synthesize_gtts(text: str, language: str) -> TtsResult:
@@ -44,15 +61,3 @@ def _synthesize_gtts(text: str, language: str) -> TtsResult:
     except (gTTSError, OSError) as exc:
         log.warning("TTS request failed: %s", type(exc).__name__)
         return TtsResult(None, "", "gTTS", "Audio unavailable: speech service could not be reached.")
-
-
-def _synthesize_openai(text: str, settings: Settings) -> TtsResult:
-    from openai import OpenAI, OpenAIError
-
-    try:
-        client = OpenAI(api_key=settings.openai_api_key)
-        response = client.audio.speech.create(model="tts-1", voice="alloy", input=text, response_format="mp3")
-        return TtsResult(response.read(), "audio/mp3", "OpenAI TTS", "Audio generated (OpenAI TTS).")
-    except OpenAIError as exc:
-        log.warning("TTS request failed: %s", type(exc).__name__)
-        return TtsResult(None, "", "OpenAI TTS", f"Audio unavailable ({type(exc).__name__}).")
