@@ -35,20 +35,17 @@ By default, everything runs in **mock mode**. No keys or network are needed, and
 
 | Service | Setting | Options | Mock behavior |
 |---|---|---|---|
-| Translation | `TRANSLATION_PROVIDER` | `mock`, `duke` | Built-in demo phrasebook. Any other text is shown as `[MOCK → Language] original text` |
-| Speech-to-text | `STT_PROVIDER` | `mock`, `duke` | The recording is ignored and a sample phrase is proposed so you can edit it |
-| Text-to-speech | `TTS_PROVIDER` | `off`, `duke`, `gtts` | `off` keeps the translated text visible and shows a status note |
+| Translation | `TRANSLATION_PROVIDER` | `mock`, `nvidia` | Built-in demo phrasebook. Any other text is shown as `[MOCK → Language] original text` |
+| Speech-to-text | `STT_PROVIDER` | `mock`, `nvidia` | The recording is ignored and a sample phrase is proposed so you can edit it |
+| Text-to-speech | `TTS_PROVIDER` | `off`, `gtts` | `off` keeps the translated text visible and shows a status note |
 
 You can switch providers from the sidebar while the app runs. To set defaults, copy `.streamlit/secrets.toml.example` to `.streamlit/secrets.toml`, or export environment variables with the same names. Environment variables take precedence.
 
-- `duke`: sends requests to the **Duke AI Gateway** (LiteLLM, OpenAI-compatible) at `https://litellm.oit.duke.edu/v1`. Requires `LITELLM_TOKEN`.
-  - Translation uses the Responses API with `TRANSLATION_MODEL` (default `GPT 4.1`).
-  - Speech-to-text uses `STT_MODEL` (default `whisper-1`).
-  - Text-to-speech uses `TTS_MODEL` (default `tts-1`) with `TTS_VOICE` (default `alloy`).
-  - The speech model names are placeholders. Make them match what your token can access, which you can list with:
-    `curl -s -H "Authorization: Bearer $LITELLM_TOKEN" https://litellm.oit.duke.edu/v1/models`
-  - `LITELLM_BASE_URL` overrides the gateway URL.
-- `gtts`: Google Translate TTS. This does not go through the Duke gateway. No key is needed, but it requires internet access. There is no voice for Haitian Creole or for free-text languages.
+- `nvidia`: sends requests to **NVIDIA's hosted API** (OpenAI-compatible chat completions) at `https://integrate.api.nvidia.com/v1`. Requires `NVIDIA_API_KEY`.
+  - Both translation and speech-to-text use `nvidia/nemotron-3-nano-omni-30b-a3b-reasoning` by default (`TRANSLATION_MODEL`, `STT_MODEL`). It is an omni model, so the recorded WAV is sent as an `audio_url` data URI content part and the model is told to transcribe verbatim.
+  - `REASONING_BUDGET` (default 1024) limits the model's hidden reasoning. Any reasoning text in the reply is stripped and never shown.
+  - `NVIDIA_BASE_URL` overrides the API URL. The sidebar's **NVIDIA connection test** checks the key and model names.
+- `gtts`: Google Translate TTS. No key is needed, but it requires internet access. There is no voice for Haitian Creole or for free-text languages. (NVIDIA's chat API does not return audio.)
 - `STAFF_LANGUAGE` (default `en`) sets the staff side of the conversation. It can also be changed in the sidebar.
 - `PROFILE_TTL_HOURS` (default 12) sets how long a profile stays valid before it is treated as expired.
 

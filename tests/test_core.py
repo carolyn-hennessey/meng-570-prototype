@@ -64,33 +64,54 @@ def test_tts_off_is_non_blocking():
     assert result.audio is None and result.status
 
 
-def test_gateway_without_token_explains_problem():
-    live = dataclasses.replace(MOCK, translation_provider="duke", stt_provider="duke", tts_provider="duke", litellm_token="")
-    assert "LITELLM_TOKEN" in translate_text("Hello", "en", "es", live).error
-    assert "LITELLM_TOKEN" in transcribe_audio(b"", "en", live).error
-    assert "LITELLM_TOKEN" in synthesize_speech("hola", "es", live).status
+def test_nvidia_without_key_explains_problem():
+    live = dataclasses.replace(MOCK, translation_provider="nvidia", stt_provider="nvidia", nvidia_api_key="")
+    assert "NVIDIA_API_KEY" in translate_text("Hello", "en", "es", live).error
+    assert "NVIDIA_API_KEY" in transcribe_audio(b"", "en", live).error
 
 
-def test_gateway_translation_request(monkeypatch):
+def _fake_chat(monkeypatch, reply):
     calls = {}
 
-    class FakeResponses:
+    class FakeCompletions:
         def create(self, **kwargs):
             calls.update(kwargs)
-            return types.SimpleNamespace(output_text=" Hola \n")
+            message = types.SimpleNamespace(content=reply)
+            return types.SimpleNamespace(choices=[types.SimpleNamespace(message=message, finish_reason="stop")])
 
-    fake = types.SimpleNamespace(responses=FakeResponses())
+    fake = types.SimpleNamespace(chat=types.SimpleNamespace(completions=FakeCompletions()))
     monkeypatch.setattr(gateway, "client", lambda settings: fake)
-    live = dataclasses.replace(MOCK, translation_provider="duke", litellm_token="t")
+    return calls
+
+
+def test_nvidia_translation_request_hides_reasoning(monkeypatch):
+    calls = _fake_chat(monkeypatch, "<think>The user wants Spanish.</think>\n Hola \n")
+    live = dataclasses.replace(MOCK, translation_provider="nvidia", nvidia_api_key="t")
     result = translate_text("Hello", "en", "es", live)
     assert result.text == "Hola" and not result.is_mock
     assert calls["model"] == live.translation_model
-    assert "from English to Spanish" in calls["input"] and "Hello" in calls["input"]
+    assert calls["extra_body"] == {"reasoning_budget": live.reasoning_budget}
+    user = calls["messages"][-1]["content"]
+    assert "from English to Spanish" in user and "Hello" in user
 
 
-def test_gateway_unreachable_is_reported():
+def test_nvidia_transcription_sends_audio(monkeypatch):
+    calls = _fake_chat(monkeypatch, "Me duele la cabeza.")
+    live = dataclasses.replace(MOCK, stt_provider="nvidia", nvidia_api_key="t")
+    result = transcribe_audio(b"RIFF", "es", live)
+    assert result.text == "Me duele la cabeza." and not result.is_mock
+    parts = calls["messages"][-1]["content"]
+    assert parts[0] == {"type": "audio_url", "audio_url": {"url": "data:audio/wav;base64,UklGRg=="}}
+
+    _fake_chat(monkeypatch, "[NO SPEECH]")
+    assert "heard no speech" in transcribe_audio(b"RIFF", "es", live).error
+    _fake_chat(monkeypatch, "<think>Listening to the clip, it seems")
+    assert "finish reason: stop" in transcribe_audio(b"RIFF", "es", live).error
+
+
+def test_nvidia_unreachable_is_reported():
     live = dataclasses.replace(
-        MOCK, translation_provider="duke", litellm_token="t", litellm_base_url="http://127.0.0.1:9/v1"
+        MOCK, translation_provider="nvidia", nvidia_api_key="t", nvidia_base_url="http://127.0.0.1:9/v1"
     )
     result = translate_text("Hello", "en", "es", live)
     assert result.text is None and "Could not reach" in result.error

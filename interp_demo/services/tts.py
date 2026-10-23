@@ -6,11 +6,8 @@ import io
 import logging
 from dataclasses import dataclass
 
-import openai
-
 from .. import languages
 from ..config import Settings
-from . import gateway
 
 log = logging.getLogger(__name__)
 
@@ -24,29 +21,9 @@ class TtsResult:
 
 
 def synthesize_speech(text: str, language: str, settings: Settings) -> TtsResult:
-    if settings.tts_provider == "duke":
-        return _synthesize_gateway(text, settings)
     if settings.tts_provider == "gtts":
         return _synthesize_gtts(text, language)
     return TtsResult(None, "", "Off", "Audio playback is turned off.")
-
-
-def _synthesize_gateway(text: str, settings: Settings) -> TtsResult:
-    provider = f"Duke AI Gateway ({settings.tts_model})"
-    if not settings.litellm_token:
-        return TtsResult(None, "", provider, "Audio unavailable: LITELLM_TOKEN is not set.")
-    try:
-        response = gateway.client(settings).audio.speech.create(
-            model=settings.tts_model, voice=settings.tts_voice, input=text, response_format="mp3"
-        )
-        return TtsResult(response.read(), "audio/mp3", provider, f"Audio generated ({provider}).")
-    except openai.OpenAIError as exc:
-        summary = (
-            f"the gateway has no model named “{settings.tts_model}”"
-            if isinstance(exc, openai.NotFoundError)
-            else "speech service error"
-        )
-        return TtsResult(None, "", provider, f"Audio unavailable: {summary} ({gateway.describe_error(exc)}).")
 
 
 def _synthesize_gtts(text: str, language: str) -> TtsResult:

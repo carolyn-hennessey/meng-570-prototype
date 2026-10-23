@@ -31,8 +31,8 @@ class TranslationResult:
 
 
 def translate_text(text: str, source_language: str, target_language: str, settings: Settings) -> TranslationResult:
-    if settings.translation_provider == "duke":
-        return _translate_gateway(text, source_language, target_language, settings)
+    if settings.translation_provider == "nvidia":
+        return _translate_nvidia(text, source_language, target_language, settings)
     return translate_mock(text, source_language, target_language)
 
 
@@ -44,32 +44,23 @@ def translate_mock(text: str, source_language: str, target_language: str) -> Tra
     return TranslationResult(f"[MOCK → {target}] {text}", "Mock translation (placeholder)", True)
 
 
-def _translate_gateway(text: str, source_language: str, target_language: str, settings: Settings) -> TranslationResult:
-    provider = f"Duke AI Gateway ({settings.translation_model})"
-    if not settings.litellm_token:
+def _translate_nvidia(text: str, source_language: str, target_language: str, settings: Settings) -> TranslationResult:
+    provider = f"{gateway.PROVIDER} ({settings.translation_model.split('/')[-1]})"
+    if not settings.nvidia_api_key:
         return TranslationResult(None, provider, False, gateway.MISSING_TOKEN)
     source = languages.english_name(source_language)
     target = languages.english_name(target_language)
+    messages = [
+        {"role": "system", "content": INSTRUCTIONS},
+        {"role": "user", "content": f"Translate from {source} to {target}:\n\n<utterance>\n{text}\n</utterance>"},
+    ]
     try:
-        response = gateway.client(settings).responses.create(
-            model=settings.translation_model,
-            instructions=INSTRUCTIONS,
-            input=f"Translate from {source} to {target}:\n\n<utterance>\n{text}\n</utterance>",
-        )
+        translated, _ = gateway.chat(settings, settings.translation_model, messages)
     except openai.OpenAIError as exc:
-        if isinstance(exc, openai.AuthenticationError):
-            summary = "The gateway rejected LITELLM_TOKEN."
-        elif isinstance(exc, openai.NotFoundError):
-            summary = f"The gateway has no model named “{settings.translation_model}”."
-        elif isinstance(exc, openai.RateLimitError):
-            summary = "The gateway is rate limiting requests. Retry shortly."
-        elif isinstance(exc, openai.APIConnectionError):
-            summary = "Could not reach the Duke AI Gateway."
-        else:
-            summary = "Translation service error."
-        return TranslationResult(None, provider, False, f"{summary} ({gateway.describe_error(exc)})")
+        return TranslationResult(
+            None, provider, False, gateway.summarize_error(exc, settings.translation_model, "Translation service error.")
+        )
 
-    translated = (response.output_text or "").strip()
     if not translated:
         return TranslationResult(None, provider, False, "The translation service returned no text.")
     return TranslationResult(translated, provider, False)

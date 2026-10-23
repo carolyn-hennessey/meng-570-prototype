@@ -9,6 +9,8 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 
+DEFAULT_MODEL = "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning"
+
 
 def _get(name: str, default: str = "") -> str:
     value = os.environ.get(name)
@@ -25,15 +27,14 @@ def _get(name: str, default: str = "") -> str:
 @dataclass(frozen=True)
 class Settings:
     staff_language: str
-    translation_provider: str  # "mock" | "duke"
-    stt_provider: str  # "mock" | "duke"
-    tts_provider: str  # "off" | "duke" | "gtts"
-    litellm_token: str
-    litellm_base_url: str
+    translation_provider: str  # "mock" | "nvidia"
+    stt_provider: str  # "mock" | "nvidia"
+    tts_provider: str  # "off" | "gtts"
+    nvidia_api_key: str
+    nvidia_base_url: str
     translation_model: str
     stt_model: str
-    tts_model: str
-    tts_voice: str
+    reasoning_budget: int
     profile_ttl_hours: float
 
 
@@ -45,12 +46,12 @@ def load_settings() -> Settings:
         translation_provider=_get("TRANSLATION_PROVIDER", "mock").lower(),
         stt_provider=_get("STT_PROVIDER", "mock").lower(),
         tts_provider=_get("TTS_PROVIDER", "off").lower(),
-        litellm_token=_get("LITELLM_TOKEN"),
-        litellm_base_url=_get("LITELLM_BASE_URL", "https://litellm.oit.duke.edu/v1"),
-        # Model names must match what the Duke gateway lists at GET /v1/models.
-        translation_model=_get("TRANSLATION_MODEL", "GPT 4.1"),
-        stt_model=_get("STT_MODEL", "whisper-1"),
-        tts_model=_get("TTS_MODEL", "tts-1"),
-        tts_voice=_get("TTS_VOICE", "alloy"),
+        nvidia_api_key=_get("NVIDIA_API_KEY"),
+        nvidia_base_url=_get("NVIDIA_BASE_URL", "https://integrate.api.nvidia.com/v1"),
+        # Nemotron Omni accepts audio as well as text, so one model covers both.
+        translation_model=_get("TRANSLATION_MODEL", DEFAULT_MODEL),
+        stt_model=_get("STT_MODEL", DEFAULT_MODEL),
+        # Cap on the model's hidden reasoning tokens; short utterances need little.
+        reasoning_budget=int(_get("REASONING_BUDGET", "1024")),
         profile_ttl_hours=float(_get("PROFILE_TTL_HOURS", "12")),
     )

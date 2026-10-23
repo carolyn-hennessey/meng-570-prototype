@@ -107,18 +107,18 @@ def render_sidebar() -> None:
         )
 
         st.subheader("Services")
-        _provider_select("Translation", "translation_provider", ["mock", "duke"], base.translation_provider)
-        _provider_select("Speech-to-text", "stt_provider", ["mock", "duke"], base.stt_provider)
-        _provider_select("Text-to-speech", "tts_provider", ["off", "duke", "gtts"], base.tts_provider)
+        _provider_select("Translation", "translation_provider", ["mock", "nvidia"], base.translation_provider)
+        _provider_select("Speech-to-text", "stt_provider", ["mock", "nvidia"], base.stt_provider)
+        _provider_select("Text-to-speech", "tts_provider", ["off", "gtts"], base.tts_provider)
 
         current = settings()
         st.caption(_status_line(current))
 
-        with st.expander("Gateway connection test"):
-            token = current.litellm_token
-            st.caption(f"URL: `{current.litellm_base_url}` · token: {'set (' + str(len(token)) + ' chars)' if token else 'not set'}")
+        with st.expander("NVIDIA connection test"):
+            token = current.nvidia_api_key
+            st.caption(f"URL: `{current.nvidia_base_url}` · key: {'set (' + str(len(token)) + ' chars)' if token else 'not set'}")
             if st.button("Test connection", width="stretch"):
-                with st.spinner("Contacting gateway…"):
+                with st.spinner("Contacting NVIDIA…"):
                     ok, message = gateway.check_connection(current)
                 (st.success if ok else st.error)(message)
 
@@ -126,7 +126,7 @@ def render_sidebar() -> None:
 def _provider_select(label: str, key: str, options: list[str], default: str) -> None:
     names = {
         "mock": "Mock (offline demo)",
-        "duke": "Duke AI Gateway",
+        "nvidia": "NVIDIA Nemotron",
         "gtts": "gTTS (Google, no key)",
         "off": "Off",
     }
@@ -145,9 +145,9 @@ def _status_line(s: Settings) -> str:
         notes.append("Translation is **MOCKED**.")
     if s.stt_provider == "mock":
         notes.append("Speech-to-text is **MOCKED** (recordings are not transcribed).")
-    uses_gateway = "duke" in (s.translation_provider, s.stt_provider, s.tts_provider)
-    if uses_gateway and not s.litellm_token:
-        notes.append("⚠️ LITELLM_TOKEN is not set — Duke AI Gateway calls will fail.")
+    uses_nvidia = "nvidia" in (s.translation_provider, s.stt_provider)
+    if uses_nvidia and not s.nvidia_api_key:
+        notes.append("⚠️ NVIDIA_API_KEY is not set — NVIDIA calls will fail.")
     return " ".join(notes) or "All selected services are live providers."
 
 
