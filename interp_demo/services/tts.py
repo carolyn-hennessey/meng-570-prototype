@@ -40,11 +40,13 @@ def _synthesize_gateway(text: str, settings: Settings) -> TtsResult:
             model=settings.tts_model, voice=settings.tts_voice, input=text, response_format="mp3"
         )
         return TtsResult(response.read(), "audio/mp3", provider, f"Audio generated ({provider}).")
-    except openai.NotFoundError:
-        return TtsResult(None, "", provider, f"Audio unavailable: the gateway has no model named “{settings.tts_model}”.")
     except openai.OpenAIError as exc:
-        log.warning("TTS request failed: %s", type(exc).__name__)
-        return TtsResult(None, "", provider, f"Audio unavailable ({type(exc).__name__}).")
+        summary = (
+            f"the gateway has no model named “{settings.tts_model}”"
+            if isinstance(exc, openai.NotFoundError)
+            else "speech service error"
+        )
+        return TtsResult(None, "", provider, f"Audio unavailable: {summary} ({gateway.describe_error(exc)}).")
 
 
 def _synthesize_gtts(text: str, language: str) -> TtsResult:

@@ -56,17 +56,18 @@ def _translate_gateway(text: str, source_language: str, target_language: str, se
             instructions=INSTRUCTIONS,
             input=f"Translate from {source} to {target}:\n\n<utterance>\n{text}\n</utterance>",
         )
-    except openai.AuthenticationError:
-        return TranslationResult(None, provider, False, "The gateway rejected LITELLM_TOKEN.")
-    except openai.NotFoundError:
-        return TranslationResult(None, provider, False, f"The gateway has no model named “{settings.translation_model}”.")
-    except openai.RateLimitError:
-        return TranslationResult(None, provider, False, "The gateway is rate limiting requests. Retry shortly.")
-    except openai.APIStatusError as exc:
-        log.warning("Translation request failed: status %s", exc.status_code)
-        return TranslationResult(None, provider, False, f"Translation service error ({exc.status_code}).")
-    except openai.APIConnectionError:
-        return TranslationResult(None, provider, False, "Could not reach the Duke AI Gateway (check network/VPN).")
+    except openai.OpenAIError as exc:
+        if isinstance(exc, openai.AuthenticationError):
+            summary = "The gateway rejected LITELLM_TOKEN."
+        elif isinstance(exc, openai.NotFoundError):
+            summary = f"The gateway has no model named “{settings.translation_model}”."
+        elif isinstance(exc, openai.RateLimitError):
+            summary = "The gateway is rate limiting requests. Retry shortly."
+        elif isinstance(exc, openai.APIConnectionError):
+            summary = "Could not reach the Duke AI Gateway."
+        else:
+            summary = "Translation service error."
+        return TranslationResult(None, provider, False, f"{summary} ({gateway.describe_error(exc)})")
 
     translated = (response.output_text or "").strip()
     if not translated:

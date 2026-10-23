@@ -56,12 +56,14 @@ def _transcribe_gateway(audio: bytes, language: str, settings: Settings) -> SttR
         kwargs["language"] = lang.stt_code
     try:
         result = gateway.client(settings).audio.transcriptions.create(**kwargs)
-    except openai.NotFoundError:
-        return SttResult(None, provider, False, f"The gateway has no speech model named “{settings.stt_model}”.")
     except openai.OpenAIError as exc:
-        # Log only the error type; never the audio or transcript.
-        log.warning("STT request failed: %s", type(exc).__name__)
-        return SttResult(None, provider, False, f"Speech-to-text failed ({type(exc).__name__}).")
+        # describe_error logs the failure detail only; never the audio or transcript.
+        summary = (
+            f"The gateway has no speech model named “{settings.stt_model}”."
+            if isinstance(exc, openai.NotFoundError)
+            else "Speech-to-text failed."
+        )
+        return SttResult(None, provider, False, f"{summary} ({gateway.describe_error(exc)})")
     text = (result.text or "").strip()
     if not text:
         return SttResult(None, provider, False, "No speech was detected. Try again or type the text.")

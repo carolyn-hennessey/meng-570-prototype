@@ -29,8 +29,9 @@ def click(at, label_start):
 
 @pytest.fixture
 def at(monkeypatch):
-    for name in ("TRANSLATION_PROVIDER", "STT_PROVIDER", "TTS_PROVIDER", "STAFF_LANGUAGE"):
-        monkeypatch.delenv(name, raising=False)
+    # Environment variables override secrets.toml, so tests stay offline even with live secrets configured.
+    for name, value in {"TRANSLATION_PROVIDER": "mock", "STT_PROVIDER": "mock", "TTS_PROVIDER": "off", "STAFF_LANGUAGE": "en"}.items():
+        monkeypatch.setenv(name, value)
     common.get_store.clear()
     app = AppTest.from_file("../app.py", default_timeout=60).run()
     assert not app.exception

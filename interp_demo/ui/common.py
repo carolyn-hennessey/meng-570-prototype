@@ -9,6 +9,7 @@ import streamlit as st
 
 from .. import languages
 from ..config import Settings, load_settings
+from ..services import gateway
 from ..store import ProfileStore
 
 # Filled in by app.py so pages can switch to each other.
@@ -112,6 +113,14 @@ def render_sidebar() -> None:
 
         current = settings()
         st.caption(_status_line(current))
+
+        with st.expander("Gateway connection test"):
+            token = current.litellm_token
+            st.caption(f"URL: `{current.litellm_base_url}` · token: {'set (' + str(len(token)) + ' chars)' if token else 'not set'}")
+            if st.button("Test connection", width="stretch"):
+                with st.spinner("Contacting gateway…"):
+                    ok, message = gateway.check_connection(current)
+                (st.success if ok else st.error)(message)
 
 
 def _provider_select(label: str, key: str, options: list[str], default: str) -> None:
